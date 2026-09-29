@@ -4,18 +4,22 @@ interface Props {
   profile: Profile;
   // The user's drawing (base64 data URL), shown as their avatar
   drawingSrc?: string | null;
+  // bigger version
+  large?: boolean;
 }
 
-export default function RCCard({ profile, drawingSrc }: Props) {
+export default function RCCard({ profile, drawingSrc, large = false }: Props) {
   // TODO !! /current and /profile/ return different objects (see .image and .image_path)
   console.log(profile);
+  const box = large ? 'w-40 h-40' : 'w-20 h-20';
   return (
-    <div className="flex items-center gap-4 p-4 max-w-lg border-4 border-blue-400 bg-white shadow-sm">
+    <div
+      className={`flex items-center gap-4 p-4 border-4 border-blue-400 bg-white shadow-sm ${large ? 'max-w-3xl' : 'max-w-lg'}`}
+    >
 
 
       <div className="justify-items-start">
-        <h3 className="text-lg font-bold">You Caught a Recursor!</h3>
-        <p className="text-sm text-black">{profile.first_name} {profile.last_name}</p>
+        <h3 className={`font-bold ${large ? 'text-3xl' : 'text-lg'}`}>{profile.first_name} {profile.last_name}</h3>
         {
         /* COMMENT OUT FOR NOW, API RERTURN WEIRDNESS
         <p className="text-sm text-gray-600">Pseudonym: {profile.pseudonym}</p>
@@ -27,10 +31,10 @@ export default function RCCard({ profile, drawingSrc }: Props) {
         <img
           src={profile.image ?? profile.image_path}
           alt={`${profile.first_name}'s photo`}
-          className="w-20 h-20 border rounded bg-white object-contain"
+          className={`${box} border rounded bg-white object-contain`}
         />
       ) : (
-        <div className="w-20 h-20 border rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+        <div className={`${box} border rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs`}>
           No photo
         </div>
       )}
@@ -38,10 +42,10 @@ export default function RCCard({ profile, drawingSrc }: Props) {
         <img
           src={drawingSrc}
           alt={`${profile.first_name}'s drawing`}
-          className="w-20 h-20 border rounded bg-white object-contain"
+          className={`${box} border rounded bg-white object-contain`}
         />
       ) : (
-        <div className="w-20 h-20 border rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+        <div className={`${box} border rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs`}>
           No drawing
         </div>
       )}

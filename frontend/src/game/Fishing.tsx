@@ -92,7 +92,7 @@ function Bobber({ phase, round }: { phase: Phase; round: Round | null }) {
 
     return (
         <mesh ref={ref}>
-            <sphereGeometry args={[0.2, 24, 12]} />
+            <sphereGeometry args={[0.1, 24, 12]} />
             <meshStandardMaterial color="#00ff26" />
         </mesh>
     );
@@ -116,7 +116,7 @@ function ApproachRing({ phase, targets }: { phase: Phase; targets: number[] }) {
 
     return (
         <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} visible={false}>
-            <ringGeometry args={[0.24, 0.28, 20]} />
+            <ringGeometry args={[0.1, 0.12, 20]} />
             <meshBasicMaterial color="white" transparent />
         </mesh>
     );
@@ -153,6 +153,39 @@ function CameraRig({ round }: { round: Round | null }) {
     return null;
 }
 
+// hold round: one dot slides across the four beats instead of the dots pulsing,
+// so a long press reads as one long move - orange while the fish holds, green while you do
+function HoldSlider({ round, mine, holding }: { round: Round; mine: boolean; holding: boolean }) {
+    const dot = useRef<HTMLDivElement>(null);
+
+    // slide every frame without re-rendering the strip
+    useEffect(() => {
+        let frame = 0;
+        const loop = () => {
+            const local = currentBeat() - round.start;
+            const progress = Math.min(Math.max((mine ? local - HOLD : local) / HOLD, 0), 1);
+            const track = dot.current?.parentElement;
+            if (dot.current && track) {
+                const span = track.clientWidth - dot.current.clientWidth;
+                dot.current.style.transform = `translateX(${progress * span}px)`;
+            }
+            frame = requestAnimationFrame(loop);
+        };
+        loop();
+        return () => cancelAnimationFrame(frame);
+    }, [round, mine]);
+
+    return (
+        <div
+            ref={dot}
+            className={[
+                'absolute left-0 top-0 w-9 h-9 rounded-full',
+                mine ? (holding ? 'bg-emerald-400' : 'border-2 border-white') : 'bg-orange-300',
+            ].join(' ')}
+        />
+    );
+}
+
 // beat strip that pulse with the tick
 function BeatStrip({ phase, round, hits, holding }: { phase: Phase; round: Round | null; hits: number[]; holding: boolean }) {
     const [beat, setBeat] = useState(-1);
@@ -172,39 +205,41 @@ function BeatStrip({ phase, round, hits, holding }: { phase: Phase; round: Round
 
     const local = round && phase === 'bite' ? beat - round.start : -1;
     const inPlay = round !== null && local >= 0 && local < ROUND;
-    const active = inPlay ? local % 4 : beat % 4;
+    const isHold = inPlay && round.kind === 'hold';
+    // the hold round has the sliding dot instead, so nothing pulses there
+    const active = isHold ? -1 : inPlay ? local % 4 : beat % 4;
     const firstHalf = local < 4;
 
     // rhythm dots
     return (
-        <div className="absolute bottom-4 inset-x-0 flex justify-center gap-4 pointer-events-none">
-            {[0, 1, 2, 3].map((i) => {
-                let style: string;
-                if (inPlay && round.kind === 'tap' && firstHalf) {
-                    // fish tugs, then your pulls
-                    if (TUGS.includes(i)) style = 'bg-orange-300';
-                    else style = `border-2 border-white ${hits.includes(round.start + i) ? 'bg-emerald-400' : ''}`;
-                } else if (inPlay && round.kind === 'hold' && firstHalf) {
-                    // fish hold: dots fill in beat by beat
-                    style = i <= local ? 'bg-white' : 'bg-white/25';
-                } else if (inPlay && round.kind === 'hold') {
-                    // your hold: rings fill in beat by beat while you hold
-                    style = `border-2 border-white ${holding && i <= local - 4 ? 'bg-emerald-400' : ''}`;
-                } else {
-                    // waiting or resting: plain pulse
-                    style = i === active ? 'bg-white/70' : 'bg-white/25';
-                }
-                return (
-                    <div
-                        key={i}
-                        className={[
-                            'w-9 h-9 rounded-full transition-transform duration-100',
-                            i === active ? 'scale-120' : 'scale-100',
-                            style,
-                        ].join(' ')}
-                    />
-                );
-            })}
+        <div className="absolute bottom-4 inset-x-0 flex justify-center pointer-events-none">
+            <div className="relative flex gap-4">
+                {[0, 1, 2, 3].map((i) => {
+                    let style: string;
+                    if (isHold) {
+                        // just a track for the sliding dot to run along
+                        style = 'bg-white/25';
+                    } else if (inPlay && round.kind === 'tap' && firstHalf) {
+                        // fish tugs, then your pulls
+                        if (TUGS.includes(i)) style = 'bg-orange-300';
+                        else style = `border-2 border-white ${hits.includes(round.start + i) ? 'bg-emerald-400' : ''}`;
+                    } else {
+                        // waiting or resting: plain pulse
+                        style = i === active ? 'bg-white/70' : 'bg-white/25';
+                    }
+                    return (
+                        <div
+                            key={i}
+                            className={[
+                                'w-9 h-9 rounded-full transition-transform duration-100',
+                                i === active ? 'scale-120' : 'scale-100',
+                                style,
+                            ].join(' ')}
+                        />
+                    );
+                })}
+                {isHold && <HoldSlider round={round} mine={!firstHalf} holding={holding} />}
+            </div>
         </div>
     );
 }
@@ -231,8 +266,8 @@ function CaughtBanner({ phase, cards }: { phase: Phase; cards: CardData[] }) {
     if (phase !== 'caught') return null;
     return (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
-            <p className="text-4xl font-bold text-white drop-shadow-lg">you caught me :p</p>
-            {cards[0] && <RCCard profile={cards[0].profile} drawingSrc={cards[0].drawing} />}
+            <p className="text-4xl font-bold text-white drop-shadow-lg">you caught a recursor :p</p>
+            {cards[0] && <RCCard profile={cards[0].profile} drawingSrc={cards[0].drawing} large />}
         </div>
     );
 }
@@ -391,7 +426,9 @@ export default function Fishing() {
     return (
         <div>
             <div
-                className="relative h-80 bg-sky-600 cursor-pointer select-none"
+                // the scene is framed for a wide, short box; lock that aspect so the
+                // sides never get cropped, and let the width set the size
+                className="relative w-full aspect-[19/10] bg-sky-600 cursor-pointer select-none"
                 onPointerDown={handleDown}
                 onPointerUp={handleUp}
                 onPointerLeave={handleUp}

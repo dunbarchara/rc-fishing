@@ -4,16 +4,15 @@ import DrawingCanvas from './features/drawing/DrawingCanvas';
 import DrawingPreview from './features/drawing/DrawingPreview';
 import { useDrawing } from './features/drawing/useDrawing';
 import RCCard from './components/RCCard';
-import { useProfileCards } from './features/profiles/useProfileCards';
+// import { useProfileCards } from './features/profiles/useProfileCards';
 
 export default function App() {
   const { profile, loading } = useAuth();
   const { savedImage, isSaving, save } = useDrawing();
-  const { cards, isLoading: isLoadingCards, load: loadCards } = useProfileCards();
+  // const { cards, isLoading: isLoadingCards, load: loadCards } = useProfileCards();
 
   return (
-    <div className="p-8 max-w-2xl mx-auto font-sans">
-      <h1 className="text-2xl font-bold mb-4">RC Fishing Game - Auth Proof Concept</h1>
+    <div className="p-8 max-w-[1600px] mx-auto font-sans">
 
       {/* Show a loading state while fetching */}
       {loading ? (
@@ -33,7 +32,7 @@ export default function App() {
           {/* Display fetched image preview if it exists in SQLite */}
           {savedImage && <DrawingPreview src={savedImage} />}
           {savedImage && <RCCard profile={profile} drawingSrc={savedImage} />}
-          <button
+          {/* <button
             onClick={loadCards}
             disabled={isLoadingCards}
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-1 rounded transition disabled:opacity-50"
@@ -42,9 +41,9 @@ export default function App() {
           </button>
           {cards.map((c) => (
             <RCCard key={c.profile.id} profile={c.profile} drawingSrc={c.drawing} />
-          ))}
+          ))} */}
 
-          <div className="mt-8">
+          {/* <div className="mt-8">
             <h2 className="text-lg font-semibold text-green-700 mb-2">
               ✅ Authenticated as: {profile.first_name} {profile.last_name}
             </h2>
@@ -52,7 +51,7 @@ export default function App() {
             <pre className="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-xs font-mono">
               {JSON.stringify(profile, null, 2)}
             </pre>
-          </div>
+          </div> */}
         </>
       )}
     </div>

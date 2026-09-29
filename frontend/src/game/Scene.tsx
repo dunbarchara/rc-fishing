@@ -125,11 +125,11 @@ function Island({ radius = 6, children, ...props }: GroupProps & { radius?: numb
 
 // tree placements [x, z, scale, dark?]
 const FAR_TREES: [number, number, number, boolean][] = [
-    [-2.5, 0.5, 1.2, false],
-    [-1.2, -1, 1.5, true],
+    [-3.5, 0.5, 1.2, false],
+    [-1.2, 0.6, 1.4, true],
     [0.4, 0.8, 1, false],
-    [1.8, -0.6, 1.4, true],
-    [3, 0.6, 1.1, false],
+    [1.8, -0.3, 1.3, true],
+    [3.8, 0.6, 1.2, false],
 ];
 
 export default function Scene() {
@@ -138,12 +138,12 @@ export default function Scene() {
             <Sky />
             <Lights />
             <Water />
-            <Dock position={[1.7, 0, 1.2]} />
+            <Dock position={[-1.5, 0, 1.2]} />
 
             {/* far island straight ahead: the main backdrop */}
             <Island radius={6} position={[0, 0, -13]}>
                 {/* a hill is just a squashed low-poly sphere */}
-                <mesh position={[-1, 0.3, -2]} scale={[3, 1.6, 2]}>
+                <mesh position={[-1, -0.2, -2]} scale={[4, 1.6, 2]}>
                     <sphereGeometry args={[1, 8, 6]} />
                     <meshToonMaterial color={PALETTE.hill} />
                 </mesh>
@@ -153,7 +153,7 @@ export default function Scene() {
             </Island>
 
             {/* closer shore on the left frames the shot */}
-            <Island radius={3} position={[-6, 0, -4]}>
+            <Island radius={3} position={[-6, 0, -3]}>
                 <Tree position={[0.5, 0.3, -0.5]} scale={1.3} dark />
                 <Tree position={[-0.8, 0.3, 0.6]} />
                 <Rock position={[1.8, 0.2, 1.2]} />
