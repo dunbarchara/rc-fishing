@@ -6,6 +6,8 @@ import * as Tone from 'tone';
 import { useMetronome } from './useMetronome';
 import { playFishHold, playPluck, playThud, startHold, stopHold } from './sounds';
 import Scene from './Scene';
+import { useProfileCards, type CardData } from '../features/profiles/useProfileCards';
+import RCCard from '../components/RCCard';
 
 // can use this to fly to debug!!!
 const DEBUG_CAMERA = false;
@@ -225,17 +227,19 @@ function TensionBar({ phase, reeled, holding }: { phase: Phase; reeled: number; 
 }
 
 // you caught fish banner
-function CaughtBanner({ phase }: { phase: Phase }) {
+function CaughtBanner({ phase, cards }: { phase: Phase; cards: CardData[] }) {
     if (phase !== 'caught') return null;
     return (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
             <p className="text-4xl font-bold text-white drop-shadow-lg">you caught me :p</p>
+            {cards[0] && <RCCard profile={cards[0].profile} drawingSrc={cards[0].drawing} />}
         </div>
     );
 }
 
 // fishing
 export default function Fishing() {
+    const { cards, load: loadCards } = useProfileCards();
     const [phase, setPhase] = useState<Phase>('idle');
     const events = useRef<number[]>([]);
     const metronome = useMetronome(BPM);
@@ -370,6 +374,7 @@ export default function Fishing() {
         setReeledView(0);
         setFeedback('');
         setPhase('waiting');
+        loadCards(); // pick the card that a win will show
         metronome.start();
 
         onBeat(bite, () => setPhase('bite'));
@@ -412,7 +417,7 @@ export default function Fishing() {
                 )}
                 <TensionBar phase={phase} reeled={reeledView} holding={isHolding} />
                 <BeatStrip phase={phase} round={roundView} hits={hits} holding={isHolding} />
-                <CaughtBanner phase={phase} />
+                <CaughtBanner phase={phase} cards={cards} />
             </div>
             <p className="mt-2">{text[phase]}</p>
         </div>
