@@ -6,8 +6,8 @@ import * as Tone from 'tone';
 import { useMetronome } from './useMetronome';
 import { playFishHold, playPluck, playThud, startHold, stopHold } from './sounds';
 import Scene from './Scene';
+import { useProfileCards, type CardData } from '../features/profiles/useProfileCards';
 import RCCard from '../components/RCCard';
-import { useProfileCards } from '../features/profiles/useProfileCards';
 
 // can use this to fly to debug!!!
 const DEBUG_CAMERA = false;
@@ -227,24 +227,19 @@ function TensionBar({ phase, reeled, holding }: { phase: Phase; reeled: number; 
 }
 
 // you caught fish banner
-function CaughtBanner({ phase, cards }: { phase: Phase; cards: ReturnType<typeof useProfileCards>['cards'] }) {
+function CaughtBanner({ phase, cards }: { phase: Phase; cards: CardData[] }) {
     if (phase !== 'caught') return null;
     return (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            {cards.map((c) => (
-                <RCCard key={c.profile.id} profile={c.profile} drawingSrc={c.drawing} />
-            ))}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
+            <p className="text-4xl font-bold text-white drop-shadow-lg">you caught me :p</p>
+            {cards[0] && <RCCard profile={cards[0].profile} drawingSrc={cards[0].drawing} />}
         </div>
     );
 }
 
 // fishing
 export default function Fishing() {
-
-    // RC profile stuff
-    const { cards, isLoading: isLoadingCards, load: loadCards } = useProfileCards();
-
-
+    const { cards, load: loadCards } = useProfileCards();
     const [phase, setPhase] = useState<Phase>('idle');
     const events = useRef<number[]>([]);
     const metronome = useMetronome(BPM);
@@ -345,7 +340,6 @@ export default function Fishing() {
     };
 
     // all the clicking
-    // TODO: only fetch one fish, need state for new fish
     const handleDown = () => {
         if (phase === 'waiting') return;
 
@@ -376,11 +370,11 @@ export default function Fishing() {
 
         // cast: wait 1-2 bars, then the bite starts on a downbeat
         const bite = 4 * (1 + Math.floor(Math.random() * 2));
-        loadCards();
         reeled.current = 0;
         setReeledView(0);
         setFeedback('');
         setPhase('waiting');
+        loadCards(); // pick the card that a win will show
         metronome.start();
 
         onBeat(bite, () => setPhase('bite'));

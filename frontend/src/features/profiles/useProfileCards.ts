@@ -3,12 +3,12 @@ import { getCurrentProfiles, getProfile } from '../../api/profiles';
 import type { Profile } from '../../api/profiles';
 import { getDrawing } from '../../api/drawings';
 
-interface CardData {
+export interface CardData {
   profile: Profile;
   drawing: string | null;
 }
 
-// Loads the profile + drawing for the first `limit` current recursers on demand
+// Loads the profile + drawing for one random current recurser on demand
 // by calling `load()` (e.g. from a button now, or a game win later)
 export function useProfileCards() {
   const [cards, setCards] = useState<CardData[]>([]);
@@ -18,17 +18,13 @@ export function useProfileCards() {
     try {
       setIsLoading(true);
       const { profiles } = await getCurrentProfiles();
-      // const randomIndex = Math.floor(Math.random() * profiles.length);
-      // const pickedProfile = profiles[Math.floor(Math.random() * profiles.length)]
-      const results = await Promise.all(
-        [profiles[Math.floor(Math.random() * profiles.length)]].map(async ({ id }) => {
-          const [p, drawing] = await Promise.all([
-            getProfile(String(id)),
-            getDrawing(String(id)),
-          ]);
-          return p ? { profile: p, drawing } : null;
-        }));
-      setCards(results.filter((c): c is CardData => c !== null));
+      if (profiles.length === 0) return setCards([]);
+      const { id } = profiles[Math.floor(Math.random() * profiles.length)];
+      const [profile, drawing] = await Promise.all([
+        getProfile(String(id)),
+        getDrawing(String(id)),
+      ]);
+      setCards(profile ? [{ profile, drawing }] : []);
     } catch (err) {
       console.error('Failed to load profile cards:', err);
     } finally {
