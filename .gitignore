@@ -1,0 +1,43 @@
+# ========================
+# Node / Dependencies
+# ========================
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# ========================
+# Build Outputs
+# ========================
+dist/
+dist-tsc/
+build/
+out/
+
+# ========================
+# Environment Variables
+# ========================
+# ALWAYS ignore .env files so your Azure keys and OAuth secrets don't leak
+.env*
+*.local
+
+# ========================
+# Database (Prisma / SQLite)
+# ========================
+# Prevents committing the local SQLite database you plan to use tomorrow
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+prisma/dev.db
+
+# ========================
+# OS & Editor Files
+# ========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
