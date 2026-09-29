@@ -27,6 +27,7 @@ export default function App() {
         </a>
       ) : (
         <>
+            <Fishing />
           <DrawingCanvas onSave={save} saving={isSaving} />
 
           {/* Display fetched image preview if it exists in SQLite */}
@@ -47,7 +48,6 @@ export default function App() {
             <h2 className="text-lg font-semibold text-green-700 mb-2">
               ✅ Authenticated as: {profile.first_name} {profile.last_name}
             </h2>
-            <Fishing />
             <p className="text-sm text-gray-600 mb-2">Raw API Response (`/api/v1/people/me`):</p>
             <pre className="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-xs font-mono">
               {JSON.stringify(profile, null, 2)}
