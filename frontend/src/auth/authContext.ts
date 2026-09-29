@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { Profile } from '../api/auth';
+import type { Profile } from '../api/profiles';
 
 export interface AuthState {
   profile: Profile | null;
