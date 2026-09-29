@@ -5,7 +5,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch profile on load
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
@@ -21,7 +20,10 @@ export default function App() {
     <div className="p-8 max-w-2xl mx-auto font-sans">
       <h1 className="text-2xl font-bold mb-4">RC Fishing Game - Auth Proof Concept</h1>
 
-      {!profile ? (
+      {/* Show a loading state while fetching */}
+      {loading ? (
+        <p className="text-gray-500">Checking auth status...</p>
+      ) : !profile ? (
         <a
           href="/api/auth/login"
           className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition"
