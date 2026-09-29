@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { Mesh, MeshBasicMaterial } from 'three';
@@ -6,6 +6,7 @@ import * as Tone from 'tone';
 import { useMetronome } from './useMetronome';
 import { playFishHold, playPluck, playThud, startHold, stopHold } from './sounds';
 import Scene from './Scene';
+import Takopi from './Takopi';
 import { useProfileCards, type CardData } from '../features/profiles/useProfileCards';
 import RCCard from '../components/RCCard';
 
@@ -13,7 +14,7 @@ import RCCard from '../components/RCCard';
 const DEBUG_CAMERA = false;
 const PIXEL_SCALE = 0.4;
 // looking a bit above the bobber [0,0,0] to keep the horizon and far island in frame
-const CAM_POS = [0, 1, 3.2] as const;
+const CAM_POS = [0, 1.15, 3.7] as const;
 const CAM_TARGET = [0, 0.35, 0] as const;
 
 type Phase = 'idle' | 'waiting' | 'bite' | 'caught' | 'escaped';
@@ -76,13 +77,35 @@ function fishHolding(round: Round | null) {
     return round?.kind === 'hold' && local >= 0 && local < HOLD ? 1 : 0;
 }
 
+function fightAmount(round: Round | null) {
+    const local = inRound(round);
+    if (!fishHolding(round)) return 0;
+    return Math.min(local / 0.5, 1) * (0.7 + 0.3 * (local / HOLD));
+}
+
+// keep the wander slow: anything quick strobes once the low-res buffer is scaled up
+function strain(t: number) {
+    return Math.sin(t * 6) + 0.5 * Math.sin(t * 9.4);
+}
+
+function reelAmount(round: Round | null) {
+    const local = inRound(round);
+    if (round?.kind !== 'hold' || local < HOLD) return 0;
+    return Math.min((local - HOLD) / HOLD, 1);
+}
+
+function crank() {
+    return Math.sin(currentBeat() * Math.PI * 2);
+}
+
 // bobber
 function Bobber({ phase, round }: { phase: Phase; round: Round | null }) {
     const ref = useRef<Mesh>(null);
 
     useFrame(({ clock }) => {
         if (!ref.current) return;
-        const shake = fishHolding(round);
+        const shake = fightAmount(round);
+
         ref.current.position.x = 0.04 * shake * Math.sin(clock.elapsedTime * 50);
         ref.current.position.y =
             0 - 0.01 * Math.exp(-beatPhase() * 5) - 0.3 * tugAmount(round) - 0.08 * shake;
@@ -143,18 +166,36 @@ function PressRipple({ press }: { press: Press | null }) {
     );
 }
 
-// camera movement on fish tug
-function CameraRig({ round }: { round: Round | null }) {
-    useFrame(({ camera }) => {
+function pullAmount(press: Press | null) {
+    const age = press ? (performance.now() - press.at) / 200 : 1;
+    return age < 1 ? Math.exp(-age * 4) : 0;
+}
+
+// camera movement: the fish hauls it down and in, your pull kicks it back out
+function CameraRig({ round, holding, press }: { round: Round | null; holding: boolean; press: Press | null }) {
+    useFrame(({ camera, clock }) => {
+        const t = clock.elapsedTime;
         const tug = tugAmount(round);
-        camera.position.set(CAM_POS[0], CAM_POS[1] - 0.1 * tug, CAM_POS[2] - 0.3 * tug);
-        camera.lookAt(CAM_TARGET[0], CAM_TARGET[1] - 0.09 * tug, CAM_TARGET[2]);
+        const fight = fightAmount(round);
+        const pull = pullAmount(press);
+        const reel = holding ? reelAmount(round) : 0;
+        const sway = reel * crank();
+
+        camera.position.set(
+            CAM_POS[0] + 0.03 * fight * strain(t) + 0.02 * sway,
+            CAM_POS[1] - 0.1 * tug - 0.05 * fight + 0.05 * pull - 0.08 * reel,
+            CAM_POS[2] - 0.3 * tug - 0.16 * fight + 0.12 * pull - 0.3 * reel - 0.03 * sway,
+        );
+        camera.lookAt(
+            CAM_TARGET[0],
+            CAM_TARGET[1] - 0.09 * tug - 0.04 * fight + 0.04 * pull - 0.04 * reel,
+            CAM_TARGET[2],
+        );
     });
     return null;
 }
 
 // hold round: one dot slides across the four beats instead of the dots pulsing,
-// so a long press reads as one long move - orange while the fish holds, green while you do
 function HoldSlider({ round, mine, holding }: { round: Round; mine: boolean; holding: boolean }) {
     const dot = useRef<HTMLDivElement>(null);
 
@@ -441,8 +482,11 @@ export default function Fishing() {
                     // scale up
                     onCreated={({ gl }) => (gl.domElement.style.imageRendering = 'pixelated')}
                 >
-                    {DEBUG_CAMERA ? <OrbitControls target={CAM_TARGET} /> : <CameraRig round={roundView} />}
+                    {DEBUG_CAMERA ? <OrbitControls target={CAM_TARGET} /> : <CameraRig round={roundView} holding={isHolding} press={press} />}
                     <Scene />
+                    <Suspense fallback={null}>
+                        <Takopi position={[-1.18, 0.28, 1.4]} rotation={[0, 9, 0]} />
+                    </Suspense>
                     <Bobber phase={phase} round={roundView} />
                     <ApproachRing phase={phase} targets={targetsView} />
                     <PressRipple press={press} />
