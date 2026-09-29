@@ -1,5 +1,5 @@
 import { api } from "./client";
+import { type Profile } from "./profiles";
 
-export interface Profile { id?: number; email?: string; first_name: string; last_name: string }
 export const getMe = () =>
   api<{ authenticated: boolean; profile?: Profile }>('/api/auth/me');

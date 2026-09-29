@@ -133,6 +133,81 @@ app.get('/api/auth/me', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Get current profiles (id, first_name, last_name)
+app.get('/api/profiles/current', async (req, res) => {
+  if (!req.session.accessToken) {
+    return res.status(401).json({ authenticated: false, error: 'Not logged in' });
+  }
+
+  try {
+    const limit = 50;
+    let offset = 0;
+    let hasMore = true;
+    const profiles: Array<{ id: number; first_name: string; last_name: string }> = [];
+
+    while (hasMore) {
+      const response = await fetch(
+        `https://www.recurse.com/api/v1/profiles?scope=current&limit=${limit}&offset=${offset}`,
+        {
+          headers: { Authorization: `Bearer ${req.session.accessToken}` },
+        }
+      );
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch profiles' });
+      }
+
+      const pageData: Array<{ id: number; first_name: string; last_name: string }> = await response.json();
+
+      // Extract only id, first_name, and last_name
+      for (const person of pageData) {
+        profiles.push({
+          id: person.id,
+          first_name: person.first_name,
+          last_name: person.last_name,
+        });
+      }
+
+      // Stop fetching if fewer results than the limit were returned
+      if (pageData.length < limit) {
+        hasMore = false;
+      } else {
+        offset += limit;
+      }
+    }
+
+    res.json({ profiles });
+  } catch (err) {
+    console.error('Directory fetch error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET: Specific user profile (must stay below /api/profiles/current, or ":userId" matches "current")
+app.get('/api/profiles/:userId', async (req, res) => {
+  if (!req.session.accessToken) {
+    return res.status(401).json({ authenticated: false, error: 'Not logged in' });
+  }
+
+  const { userId } = req.params;
+
+  try {
+    const profileRes = await fetch(`https://www.recurse.com/api/v1/profiles/${userId}`, {
+      headers: { Authorization: `Bearer ${req.session.accessToken}` },
+    });
+
+    if (!profileRes.ok) {
+      return res.status(profileRes.status).json({ error: 'Failed to fetch profile' });
+    }
+
+    const profileData = await profileRes.json();
+    res.json({ authenticated: true, profile: profileData });
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 // ==========================================
 
 
