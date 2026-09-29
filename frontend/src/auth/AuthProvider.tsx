@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getMe } from '../api/auth';
-import type { Profile } from '../api/auth';
+import type { Profile } from '../api/profiles';
 import { AuthContext } from './authContext';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
