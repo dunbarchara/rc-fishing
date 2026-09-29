@@ -1,9 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import type { Mesh, MeshBasicMaterial } from 'three';
 import * as Tone from 'tone';
 import { useMetronome } from './useMetronome';
 import { playFishHold, playPluck, playThud, startHold, stopHold } from './sounds';
+import Scene from './Scene';
+
+// can use this to fly to debug!!!
+const DEBUG_CAMERA = false;
+const PIXEL_SCALE = 0.4;
+// looking a bit above the bobber [0,0,0] to keep the horizon and far island in frame
+const CAM_POS = [0, 1, 3.2] as const;
+const CAM_TARGET = [0, 0.35, 0] as const;
 
 type Phase = 'idle' | 'waiting' | 'bite' | 'caught' | 'escaped';
 
@@ -136,8 +145,8 @@ function PressRipple({ press }: { press: Press | null }) {
 function CameraRig({ round }: { round: Round | null }) {
     useFrame(({ camera }) => {
         const tug = tugAmount(round);
-        camera.position.set(0, 1.2 - 0.1 * tug, 3 - 0.3 * tug);
-        camera.lookAt(0, -0.09 * tug, 0);
+        camera.position.set(CAM_POS[0], CAM_POS[1] - 0.1 * tug, CAM_POS[2] - 0.3 * tug);
+        camera.lookAt(CAM_TARGET[0], CAM_TARGET[1] - 0.09 * tug, CAM_TARGET[2]);
     });
     return null;
 }
@@ -382,14 +391,16 @@ export default function Fishing() {
                 onPointerUp={handleUp}
                 onPointerLeave={handleUp}
             >
-                <Canvas camera={{ position: [0, 1.2, 3], fov: 40 }}>
-                    <CameraRig round={roundView} />
-                    <ambientLight intensity={0.6} />
-                    <directionalLight position={[5, 5, 5]} />
-                    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                        <planeGeometry args={[40, 40]} />
-                        <meshStandardMaterial color="#2d94d0" />
-                    </mesh>
+                <Canvas
+                    camera={{ position: CAM_POS, fov: 40 }}
+                    // render at a fraction of the screen's resolution
+                    dpr={PIXEL_SCALE}
+                    gl={{ antialias: false }}
+                    // scale up
+                    onCreated={({ gl }) => (gl.domElement.style.imageRendering = 'pixelated')}
+                >
+                    {DEBUG_CAMERA ? <OrbitControls target={CAM_TARGET} /> : <CameraRig round={roundView} />}
+                    <Scene />
                     <Bobber phase={phase} round={roundView} />
                     <ApproachRing phase={phase} targets={targetsView} />
                     <PressRipple press={press} />
