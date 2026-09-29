@@ -2,6 +2,9 @@
 FROM node:22-bookworm-slim
 WORKDIR /code
 
+# Set the default runtime port to 3000 for Disco
+ENV PORT=3000
+
 # Copy the entire project into the container
 COPY . /code/.
 
