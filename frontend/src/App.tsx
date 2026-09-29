@@ -2,11 +2,12 @@ import { useEffect, useState, useRef } from 'react';
 import { ReactSketchCanvas } from 'react-sketch-canvas';
 import type { ReactSketchCanvasRef } from 'react-sketch-canvas';
 import Fishing from './game/Fishing';
+import { useAuth } from './auth/useAuth';
+import { getDrawing, saveDrawing } from './api/drawings';
 
 export default function App() {
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  
+  const { profile, loading } = useAuth();
+
   // State for storing and showing the fetched drawing string
   const [savedImage, setSavedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -15,72 +16,34 @@ export default function App() {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
 
   // Extract a unique identifier for the user profile
-  const userId = profile?.id || profile?.email;
+  const userId = profile ? String(profile.id ?? profile.email) : null;
 
-  // Function to load the saved drawing for the authenticated user
-  const fetchUserDrawing = async (uid: string) => {
-    try {
-      const res = await fetch(`/api/drawings/${uid}`);
-      const data = await res.json();
-      if (data.success && data.imageData) {
-        setSavedImage(data.imageData);
-      }
-    } catch (err) {
-      console.error('Failed to fetch existing drawing:', err);
-    }
-  };
+  // Load the existing drawing once we know who the user is
+  useEffect(() => {
+    if (!userId) return;
+    getDrawing(userId)
+      .then(setSavedImage)
+      .catch((err) => console.error('Failed to fetch existing drawing:', err));
+  }, [userId]);
 
-  const handleSaveAndFetch = async () => {
+  const handleSave = async () => {
     if (!userId) return;
 
     try {
       setIsSaving(true);
-      
-      // 1. Export drawing from canvas as Base64 string
-      const exportData = await canvasRef.current?.exportImage('png');
-      if (!exportData) return;
 
-      // 2. POST image to backend
-      const saveRes = await fetch('/api/drawings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: String(userId),
-          imageData: exportData,
-        }),
-      });
+      // Export drawing from canvas as Base64 string
+      const imageData = await canvasRef.current?.exportImage('png');
+      if (!imageData) return;
 
-      const saveData = await saveRes.json();
-
-      if (saveData.success) {
-        // 3. Fetch the saved image back from the server to verify round-trip
-        await fetchUserDrawing(String(userId));
-      }
+      await saveDrawing(userId, imageData);
+      setSavedImage(imageData);
     } catch (err) {
-      console.error('Error saving or fetching drawing:', err);
+      console.error('Error saving drawing:', err);
     } finally {
       setIsSaving(false);
     }
   };
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.authenticated) {
-          setProfile(data.profile);
-          // Automatically check if this user already has a saved drawing on load
-          const uid = data.profile?.id || data.profile?.email;
-          if (uid) {
-            fetchUserDrawing(String(uid));
-          }
-        }
-      })
-      .catch((err) => console.error('Failed to load profile:', err))
-      .finally(() => setLoading(false));
-  }, []);
 
   return (
     <div className="p-8 max-w-2xl mx-auto font-sans">
@@ -134,7 +97,7 @@ export default function App() {
                 Undo
               </button>
               <button 
-                onClick={handleSaveAndFetch}
+                onClick={handleSave}
                 disabled={isSaving}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-1 rounded transition disabled:opacity-50"
               >
