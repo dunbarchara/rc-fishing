@@ -5,14 +5,63 @@ import type { ReactSketchCanvasRef } from 'react-sketch-canvas';
 export default function App() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // State for storing and showing the fetched drawing string
+  const [savedImage, setSavedImage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Create a reference to interact with the canvas (exporting, clearing, etc.)
+  // Reference to interact with the canvas
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
 
-  const handleExport = async () => {
-    // Exports a Base64 PNG string you can send to your Express backend
-    const exportData = await canvasRef.current?.exportImage('png');
-    console.log(exportData); 
+  // Extract a unique identifier for the user profile
+  const userId = profile?.id || profile?.email;
+
+  // Function to load the saved drawing for the authenticated user
+  const fetchUserDrawing = async (uid: string) => {
+    try {
+      const res = await fetch(`/api/drawings/${uid}`);
+      const data = await res.json();
+      if (data.success && data.imageData) {
+        setSavedImage(data.imageData);
+      }
+    } catch (err) {
+      console.error('Failed to fetch existing drawing:', err);
+    }
+  };
+
+  const handleSaveAndFetch = async () => {
+    if (!userId) return;
+
+    try {
+      setIsSaving(true);
+      
+      // 1. Export drawing from canvas as Base64 string
+      const exportData = await canvasRef.current?.exportImage('png');
+      if (!exportData) return;
+
+      // 2. POST image to backend
+      const saveRes = await fetch('/api/drawings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: String(userId),
+          imageData: exportData,
+        }),
+      });
+
+      const saveData = await saveRes.json();
+
+      if (saveData.success) {
+        // 3. Fetch the saved image back from the server to verify round-trip
+        await fetchUserDrawing(String(userId));
+      }
+    } catch (err) {
+      console.error('Error saving or fetching drawing:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -21,6 +70,11 @@ export default function App() {
       .then((data) => {
         if (data.authenticated) {
           setProfile(data.profile);
+          // Automatically check if this user already has a saved drawing on load
+          const uid = data.profile?.id || data.profile?.email;
+          if (uid) {
+            fetchUserDrawing(String(uid));
+          }
         }
       })
       .catch((err) => console.error('Failed to load profile:', err))
@@ -43,8 +97,8 @@ export default function App() {
         </a>
       ) : (
         <>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
-            <h1>Draw Something</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
+            <h2 className="text-xl font-bold mb-2">Draw Something</h2>
 
             {/* The wrapper enforces the square shape and disables native mobile scrolling */}
             <div style={{ 
@@ -53,7 +107,7 @@ export default function App() {
                 aspectRatio: '1 / 1', 
                 touchAction: 'none' 
             }}>
-                <ReactSketchCanvas
+              <ReactSketchCanvas
                 ref={canvasRef}
                 style={{ border: '2px solid #333', borderRadius: '8px' }}
                 width="100%"
@@ -61,31 +115,56 @@ export default function App() {
                 strokeWidth={4}
                 strokeColor="#000000"
                 canvasColor="#ffffff"
-                />
+              />
             </div>
 
-            {/* Basic controls */}
+            {/* Controls */}
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button onClick={() => canvasRef.current?.clearCanvas()}>
+              <button 
+                onClick={() => canvasRef.current?.clearCanvas()}
+                className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+              >
                 Clear
-                </button>
-                <button onClick={() => canvasRef.current?.undo()}>
+              </button>
+              <button 
+                onClick={() => canvasRef.current?.undo()}
+                className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+              >
                 Undo
-                </button>
-                <button onClick={handleExport}>
-                Log Image Data
-                </button>
+              </button>
+              <button 
+                onClick={handleSaveAndFetch}
+                disabled={isSaving}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-1 rounded transition disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save & Fetch Drawing'}
+              </button>
             </div>
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-green-700 mb-2">
-            ✅ Authenticated as: {profile.first_name} {profile.last_name}
-          </h2>
-          <p className="text-sm text-gray-600 mb-2">Raw API Response (`/api/v1/people/me`):</p>
-          <pre className="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-xs font-mono">
-            {JSON.stringify(profile, null, 2)}
-          </pre>
-        </div>
+          </div>
+
+          {/* Display fetched image preview if it exists in SQLite */}
+          {savedImage && (
+            <div className="my-6 p-4 border rounded bg-gray-50 text-center">
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Saved Drawing (Fetched from SQLite Backend):
+              </h3>
+              <img 
+                src={savedImage} 
+                alt="Saved user drawing" 
+                className="w-48 h-48 mx-auto border rounded bg-white shadow-sm object-contain"
+              />
+            </div>
+          )}
+
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold text-green-700 mb-2">
+              ✅ Authenticated as: {profile.first_name} {profile.last_name}
+            </h2>
+            <p className="text-sm text-gray-600 mb-2">Raw API Response (`/api/v1/people/me`):</p>
+            <pre className="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-xs font-mono">
+              {JSON.stringify(profile, null, 2)}
+            </pre>
+          </div>
         </>
       )}
     </div>

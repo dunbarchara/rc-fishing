@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import session from 'express-session';
 import dotenv from 'dotenv';
+import Database from 'better-sqlite3';
 
 // Dynamically resolve .env path based on where the command is executed from
 const envPath = fs.existsSync(path.resolve(process.cwd(), '.env')) 
@@ -29,6 +30,17 @@ app.set('trust proxy', 1);
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Initialize SQLite database (creates 'rcfishing.db' file in the same folder)
+const db = new Database('rcfishing.db');
+
+// Create the table. We use user_id as the Primary Key so each user has one drawing.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS recurser_drawings (
+    user_id TEXT PRIMARY KEY,
+    image_data TEXT NOT NULL
+  )
+`);
 
 // Initialize Session Middleware
 app.use(
@@ -122,6 +134,70 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 // ==========================================
+
+
+
+
+
+
+
+// ==========================================
+// RC DRAWINGS API ROUTES
+// ==========================================
+
+interface UserDrawingRow {
+  user_id: string;
+  image_data: string;
+}
+
+// POST: Save or update a user's drawing
+app.post('/api/drawings', (req, res) => {
+  const { userId, imageData } = req.body;
+
+  if (!userId || !imageData) {
+    return res.status(400).json({ error: 'Missing userId or imageData' });
+  }
+
+  try {
+    // INSERT OR REPLACE acts as an upsert. 
+    // If the userId exists, it overwrites their old drawing.
+    const stmt = db.prepare(
+      'INSERT OR REPLACE INTO recurser_drawings (user_id, image_data) VALUES (?, ?)'
+    );
+    stmt.run(userId, imageData);
+    
+    res.json({ success: true, message: 'Drawing saved successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to save drawing' });
+  }
+});
+
+// GET: Fetch a user's drawing
+app.get('/api/drawings/:userId', (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const stmt = db.prepare('SELECT image_data FROM recurser_drawings WHERE user_id = ?');
+    const row = stmt.get(userId) as UserDrawingRow | undefined;
+
+    if (!row) {
+      return res.status(404).json({ error: 'No drawing found for this user' });
+    }
+
+    res.json({ success: true, imageData: row.image_data });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch drawing' });
+  }
+});
+
+
+
+
+
+
+
 
 // Existing API Routes
 app.get('/api/health', (req, res) => {
