@@ -9,7 +9,7 @@ import { useProfileCards } from './features/profiles/useProfileCards';
 export default function App() {
   const { profile, loading } = useAuth();
   const { savedImage, isSaving, save } = useDrawing();
-  const { cards, isLoading: isLoadingCards, load: loadCards } = useProfileCards(5);
+  const { cards, isLoading: isLoadingCards, load: loadCards } = useProfileCards();
 
   return (
     <div className="p-8 max-w-2xl mx-auto font-sans">
@@ -27,7 +27,7 @@ export default function App() {
         </a>
       ) : (
         <>
-            <Fishing />
+          <Fishing />
           <DrawingCanvas onSave={save} saving={isSaving} />
 
           {/* Display fetched image preview if it exists in SQLite */}

@@ -7,15 +7,15 @@ interface Props {
 }
 
 export default function RCCard({ profile, drawingSrc }: Props) {
-    // TODO !! /current and /profile/ return different objects (see .image and .image_path)
-        console.log(profile);
+  // TODO !! /current and /profile/ return different objects (see .image and .image_path)
+  console.log(profile);
   return (
-    <div className="flex items-center gap-4 p-4 max-w-lg border-2 border-gray-800 rounded-lg bg-white shadow-sm">
+    <div className="flex items-center gap-4 p-4 max-w-lg border-4 border-blue-400 bg-white shadow-sm">
 
 
       <div className="justify-items-start">
-        <h3 className="text-lg font-bold">Recurser Card</h3>
-        <p className="text-sm text-gray-600">Name: {profile.first_name} {profile.last_name}</p>
+        <h3 className="text-lg font-bold">You Caught a Recursor!</h3>
+        <p className="text-sm text-black">{profile.first_name} {profile.last_name}</p>
         {
         /* COMMENT OUT FOR NOW, API RERTURN WEIRDNESS
         <p className="text-sm text-gray-600">Pseudonym: {profile.pseudonym}</p>

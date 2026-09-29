@@ -10,7 +10,7 @@ interface CardData {
 
 // Loads the profile + drawing for the first `limit` current recursers on demand
 // by calling `load()` (e.g. from a button now, or a game win later)
-export function useProfileCards(limit = 5) {
+export function useProfileCards() {
   const [cards, setCards] = useState<CardData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -18,15 +18,16 @@ export function useProfileCards(limit = 5) {
     try {
       setIsLoading(true);
       const { profiles } = await getCurrentProfiles();
+      // const randomIndex = Math.floor(Math.random() * profiles.length);
+      // const pickedProfile = profiles[Math.floor(Math.random() * profiles.length)]
       const results = await Promise.all(
-        profiles.slice(0, limit).map(async ({ id }) => {
+        [profiles[Math.floor(Math.random() * profiles.length)]].map(async ({ id }) => {
           const [p, drawing] = await Promise.all([
             getProfile(String(id)),
             getDrawing(String(id)),
           ]);
           return p ? { profile: p, drawing } : null;
-        })
-      );
+        }));
       setCards(results.filter((c): c is CardData => c !== null));
     } catch (err) {
       console.error('Failed to load profile cards:', err);

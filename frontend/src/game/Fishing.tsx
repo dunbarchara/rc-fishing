@@ -6,6 +6,8 @@ import * as Tone from 'tone';
 import { useMetronome } from './useMetronome';
 import { playFishHold, playPluck, playThud, startHold, stopHold } from './sounds';
 import Scene from './Scene';
+import RCCard from '../components/RCCard';
+import { useProfileCards } from '../features/profiles/useProfileCards';
 
 // can use this to fly to debug!!!
 const DEBUG_CAMERA = false;
@@ -225,17 +227,24 @@ function TensionBar({ phase, reeled, holding }: { phase: Phase; reeled: number; 
 }
 
 // you caught fish banner
-function CaughtBanner({ phase }: { phase: Phase }) {
+function CaughtBanner({ phase, cards }: { phase: Phase; cards: ReturnType<typeof useProfileCards>['cards'] }) {
     if (phase !== 'caught') return null;
     return (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-4xl font-bold text-white drop-shadow-lg">you caught me :p</p>
+            {cards.map((c) => (
+                <RCCard key={c.profile.id} profile={c.profile} drawingSrc={c.drawing} />
+            ))}
         </div>
     );
 }
 
 // fishing
 export default function Fishing() {
+
+    // RC profile stuff
+    const { cards, isLoading: isLoadingCards, load: loadCards } = useProfileCards();
+
+
     const [phase, setPhase] = useState<Phase>('idle');
     const events = useRef<number[]>([]);
     const metronome = useMetronome(BPM);
@@ -336,6 +345,7 @@ export default function Fishing() {
     };
 
     // all the clicking
+    // TODO: only fetch one fish, need state for new fish
     const handleDown = () => {
         if (phase === 'waiting') return;
 
@@ -366,6 +376,7 @@ export default function Fishing() {
 
         // cast: wait 1-2 bars, then the bite starts on a downbeat
         const bite = 4 * (1 + Math.floor(Math.random() * 2));
+        loadCards();
         reeled.current = 0;
         setReeledView(0);
         setFeedback('');
@@ -412,7 +423,7 @@ export default function Fishing() {
                 )}
                 <TensionBar phase={phase} reeled={reeledView} holding={isHolding} />
                 <BeatStrip phase={phase} round={roundView} hits={hits} holding={isHolding} />
-                <CaughtBanner phase={phase} />
+                <CaughtBanner phase={phase} cards={cards} />
             </div>
             <p className="mt-2">{text[phase]}</p>
         </div>
