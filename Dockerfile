@@ -12,7 +12,7 @@ COPY . /code/.
 # Install dependencies across root, frontend, and backend using your custom script
 # Build the frontend into static files (outputs to /code/frontend/dist)
 # Compile the backend TypeScript into JavaScript (outputs to /code/backend/dist)
-
+# Comment
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
