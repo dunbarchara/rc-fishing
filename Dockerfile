@@ -8,17 +8,20 @@ ENV PORT=3000
 # Copy the entire project into the container
 COPY . /code/.
 
+# Install python and build utilities to compile better-sqlite3 then remove
 # Install dependencies across root, frontend, and backend using your custom script
-RUN npm run install:all
-
-# (For Tomorrow) Generate Prisma Client once you add the database
-# RUN npx prisma generate --schema=backend/prisma/schema.prisma
-
 # Build the frontend into static files (outputs to /code/frontend/dist)
-RUN npm run build --prefix frontend
-
 # Compile the backend TypeScript into JavaScript (outputs to /code/backend/dist)
-RUN npm run build --prefix backend
+# Comment
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && npm run install:all \
+    && npm run build --prefix frontend \
+    && npm run build --prefix backend \
+    && apt-get purge -y --auto-remove python3 make g++ \
+    && rm -rf /var/lib/apt-get/lists/*
 
 # Expose the port disco.json expects
 EXPOSE 3000
