@@ -2,16 +2,128 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import session from 'express-session';
+import dotenv from 'dotenv';
+
+// Dynamically resolve .env path based on where the command is executed from
+const envPath = fs.existsSync(path.resolve(process.cwd(), '.env')) 
+  ? path.resolve(process.cwd(), '.env')       // Used in Docker / Root
+  : path.resolve(process.cwd(), '../.env');   // Used in local Monorepo dev
+
+dotenv.config({ path: envPath });
+
+// Extend session type to hold RC access token
+declare module 'express-session' {
+  interface SessionData {
+    accessToken?: string;
+  }
+}
 
 const app = express();
 
 // Use the port provided by Disco/environment, or fallback to 3002 for local dev
 const PORT = process.env.PORT || 3002;
 
+// Trust the Disco reverse proxy so secure cookies aren't dropped
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// API Routes
+// Initialize Session Middleware
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'rc-fishing-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production', // Requires HTTPS in production
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 2 // 2 hours (matches RC Token expiration)
+    }
+  })
+);
+
+// ==========================================
+// RC OAUTH API ROUTES
+// ==========================================
+const RC_CLIENT_ID = process.env.RC_CLIENT_ID || '';
+const RC_CLIENT_SECRET = process.env.RC_CLIENT_SECRET || '';
+const RC_REDIRECT_URI = process.env.RC_REDIRECT_URI || 'http://localhost:3000/api/auth/callback';
+
+// 1. Redirect to RC Login
+app.get('/api/auth/login', (req, res) => {
+  const authUrl = new URL('https://www.recurse.com/oauth/authorize');
+  authUrl.searchParams.append('client_id', RC_CLIENT_ID);
+  authUrl.searchParams.append('redirect_uri', RC_REDIRECT_URI);
+  authUrl.searchParams.append('response_type', 'code');
+  res.redirect(authUrl.toString());
+});
+
+// 2. Handle RC Callback & Store Token
+app.get('/api/auth/callback', async (req, res) => {
+  const code = req.query.code as string;
+  
+  if (!code) {
+    return res.status(400).send('No authorization code provided');
+  }
+
+  try {
+    const tokenRes = await fetch('https://www.recurse.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: RC_CLIENT_ID,
+        client_secret: RC_CLIENT_SECRET,
+        redirect_uri: RC_REDIRECT_URI,
+        grant_type: 'authorization_code',
+        code: code,
+      }),
+    });
+
+    const data = await tokenRes.json();
+    
+    if (!tokenRes.ok) {
+      console.error('OAuth Token Error:', data);
+      return res.status(400).json(data);
+    }
+
+    // Save token in the user's session
+    req.session.accessToken = data.access_token;
+
+    // Redirect back to the frontend application
+    res.redirect('/');
+  } catch (err) {
+    console.error('Callback error:', err);
+    res.status(500).send('Authentication failed');
+  }
+});
+
+// 3. Get Authenticated Profile
+app.get('/api/auth/me', async (req, res) => {
+  if (!req.session.accessToken) {
+    return res.status(401).json({ authenticated: false, error: 'Not logged in' });
+  }
+
+  try {
+    const profileRes = await fetch('https://www.recurse.com/api/v1/people/me', {
+      headers: { Authorization: `Bearer ${req.session.accessToken}` },
+    });
+
+    if (!profileRes.ok) {
+      return res.status(profileRes.status).json({ error: 'Failed to fetch profile' });
+    }
+
+    const profileData = await profileRes.json();
+    res.json({ authenticated: true, profile: profileData });
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+// ==========================================
+
+// Existing API Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is hooked up!' });
 });
