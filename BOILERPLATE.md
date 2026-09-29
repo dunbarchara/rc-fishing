@@ -41,3 +41,15 @@ Action: Created backend/src/server.ts with basic Express setup, CORS, and /api/h
 ```bash
 npm run dev
 ```
+
+**Prep for Disco**
+
+Added `disco.json` in root specifying "web" service on port 3000.  
+Created root `.dockerignore` ignoring `node_modules`, `dist`, `.env`, and `.git`.  
+Created root `Dockerfile` (`node:22-bookworm-slim`) to install dependencies, build frontend (`npm run build --prefix frontend`), compile backend (`npm run build --prefix backend`), expose port 3000, and run compiled Express server (`node backend/dist/server.js`).  
+Updated `backend/package.json` to include `"build": "tsc"`.  
+Updated `backend/src/server.ts` to:  
+  * Read port dynamically via `process.env.PORT || 3002`.
+  * Serve compiled static frontend files from `frontend/dist` using `express.static`.
+  * Add SPA fallback route `app.get('/*path', ...)` for cross-version Express/path-to-regexp compatibility.
+Updated `frontend/vite.config.ts` proxy target to explicit IPv4 (`http://127.0.0.1:3002`) to prevent local IPv6 `ECONNREFUSED` connection issues.

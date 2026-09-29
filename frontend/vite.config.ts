@@ -8,10 +8,13 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    port: 3000,
+    strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://127.0.0.1:3002', // Explicit IPv4 address
         changeOrigin: true,
+        secure: false,
       },
     },
   },
