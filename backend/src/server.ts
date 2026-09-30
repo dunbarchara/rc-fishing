@@ -259,6 +259,24 @@ app.post('/api/drawings', (req, res) => {
   }
 });
 
+// GET: Bare-bones HTML page for all drawings
+app.get('/api/gallery', (req, res) => {
+  if (!req.session.accessToken) {
+    return res.status(401).send('Not logged in');
+  }
+
+  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  const rows = db.prepare('SELECT user_id, image_data FROM recurser_drawings').all() as UserDrawingRow[];
+  const figures = rows
+    .map((r) => `<figure><img src="${esc(r.image_data)}" alt=""><figcaption>${esc(r.user_id)}</figcaption></figure>`)
+    .join('\n');
+
+  res.type('html').send(`<!doctype html>
+<title>rc-fishing drawings (${rows.length})</title>
+<style>body{font-family:sans-serif;display:flex;flex-wrap:wrap;gap:16px;padding:16px}figure{margin:0;text-align:center}img{max-width:200px;border:1px solid #ccc;display:block}</style>
+${figures || '<p>No drawings yet.</p>'}`);
+});
+
 // GET: Fetch a user's drawing
 app.get('/api/drawings/:userId', (req, res) => {
   const { userId } = req.params;
