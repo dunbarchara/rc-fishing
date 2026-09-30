@@ -31,8 +31,19 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Store the DB inside /rcfishing_data when deployed in Docker, or local root in dev
+const dbPath = process.env.VOLUME_DIR 
+  ? path.join(process.env.VOLUME_DIR, 'rcfishing.db')
+  : path.resolve(process.cwd(), 'rcfishing.db');
+
+// Ensure the target directory exists before opening SQLite
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
 // Initialize SQLite database (creates 'rcfishing.db' file in the same folder)
-const db = new Database('rcfishing.db');
+const db = new Database(dbPath);
 
 // Create the table. We use user_id as the Primary Key so each user has one drawing.
 // comment to trigger deploy to test volumes on Disco, old db/table should exist after deploy
