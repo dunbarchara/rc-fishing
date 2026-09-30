@@ -8,7 +8,7 @@ import { playFishHold, playPluck, playThud, startHold, stopHold } from './sounds
 import Scene from './Scene';
 import Takopi from './Takopi';
 import { useProfileCards, type CardData } from '../features/profiles/useProfileCards';
-import RCCard from '../components/RCCard';
+import DexCard from './DexCard';
 
 // can use this to fly to debug!!!
 const DEBUG_CAMERA = false;
@@ -306,9 +306,9 @@ function TensionBar({ phase, reeled, holding }: { phase: Phase; reeled: number; 
 function CaughtBanner({ phase, cards }: { phase: Phase; cards: CardData[] }) {
     if (phase !== 'caught') return null;
     return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
-            <p className="text-4xl font-bold text-white drop-shadow-lg">you caught a recursor :p</p>
-            {cards[0] && <RCCard profile={cards[0].profile} drawingSrc={cards[0].drawing} large />}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-[0.8em] text-[length:1.8cqw] leading-tight pointer-events-none">
+            <p className="text-[2em] font-bold text-white drop-shadow-md">you caught a recursor :p</p>
+            {cards[0] && <DexCard profile={cards[0].profile} drawingSrc={cards[0].drawing} />}
         </div>
     );
 }
@@ -332,6 +332,7 @@ export default function Fishing() {
     const holding = useRef(false);
     const [isHolding, setIsHolding] = useState(false);
     const [press, setPress] = useState<Press | null>(null);
+    const [castAt, setCastAt] = useState<number | null>(null); // when the pole was last cast
     const [feedback, setFeedback] = useState('');
 
     // book something to happen on a beat
@@ -365,6 +366,7 @@ export default function Fishing() {
         round.current = null;
         setRoundView(null);
         setTargets([]);
+        setCastAt(null); // reel the pole back up
         setPhase(result);
     };
 
@@ -450,6 +452,7 @@ export default function Fishing() {
         setReeledView(0);
         setFeedback('');
         setPhase('waiting');
+        setCastAt(performance.now());
         loadCards(); // pick the card that a win will show
         metronome.start();
 
@@ -469,7 +472,7 @@ export default function Fishing() {
             <div
                 // the scene is framed for a wide, short box; lock that aspect so the
                 // sides never get cropped, and let the width set the size
-                className="relative w-full aspect-[19/10] bg-sky-600 cursor-pointer select-none"
+                className="@container relative w-full aspect-[19/10] bg-sky-600 cursor-pointer select-none"
                 onPointerDown={handleDown}
                 onPointerUp={handleUp}
                 onPointerLeave={handleUp}
@@ -485,7 +488,7 @@ export default function Fishing() {
                     {DEBUG_CAMERA ? <OrbitControls target={CAM_TARGET} /> : <CameraRig round={roundView} holding={isHolding} press={press} />}
                     <Scene />
                     <Suspense fallback={null}>
-                        <Takopi position={[-1.18, 0.28, 1.4]} rotation={[0, 9, 0]} />
+                        <Takopi position={[-1.18, 0.28, 1.4]} rotation={[0, 9, 0]} castAt={castAt} />
                     </Suspense>
                     <Bobber phase={phase} round={roundView} />
                     <ApproachRing phase={phase} targets={targetsView} />
