@@ -35,6 +35,7 @@ app.use(express.json({ limit: '10mb' }));
 const db = new Database('rcfishing.db');
 
 // Create the table. We use user_id as the Primary Key so each user has one drawing.
+// comment to trigger deploy to test volumes on Disco, old db/table should exist after deploy
 db.exec(`
   CREATE TABLE IF NOT EXISTS recurser_drawings (
     user_id TEXT PRIMARY KEY,
