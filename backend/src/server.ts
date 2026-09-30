@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import Database from 'better-sqlite3';
 
 // Dynamically resolve .env path based on where the command is executed from
-const envPath = fs.existsSync(path.resolve(process.cwd(), '.env')) 
+const envPath = fs.existsSync(path.resolve(process.cwd(), '.env'))
   ? path.resolve(process.cwd(), '.env')       // Used in Docker / Root
   : path.resolve(process.cwd(), '../.env');   // Used in local Monorepo dev
 
@@ -32,7 +32,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // Store the DB inside /volume_rcfishing when deployed in Docker, or local root in dev
-const dbPath = process.env.VOLUME_DIR 
+const dbPath = process.env.VOLUME_DIR
   ? path.join(process.env.VOLUME_DIR, 'rcfishing.db')
   : path.resolve(process.cwd(), 'rcfishing.db');
 
@@ -86,7 +86,7 @@ app.get('/api/auth/login', (req, res) => {
 // 2. Handle RC Callback & Store Token
 app.get('/api/auth/callback', async (req, res) => {
   const code = req.query.code as string;
-  
+
   if (!code) {
     return res.status(400).send('No authorization code provided');
   }
@@ -105,7 +105,7 @@ app.get('/api/auth/callback', async (req, res) => {
     });
 
     const data = await tokenRes.json();
-    
+
     if (!tokenRes.ok) {
       console.error('OAuth Token Error:', data);
       return res.status(400).json(data);
@@ -251,7 +251,7 @@ app.post('/api/drawings', (req, res) => {
       'INSERT OR REPLACE INTO recurser_drawings (user_id, image_data) VALUES (?, ?)'
     );
     stmt.run(userId, imageData);
-    
+
     res.json({ success: true, message: 'Drawing saved successfully' });
   } catch (error) {
     console.error(error);
@@ -287,7 +287,9 @@ app.get('/api/drawings/:userId', (req, res) => {
 
 // Existing API Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Backend is hooked up!' });
+  // dbPath + drawings count
+  const { count } = db.prepare('SELECT COUNT(*) AS count FROM recurser_drawings').get() as { count: number };
+  res.json({ status: 'ok', message: 'Backend is hooked up!', dbPath, drawings: count });
 });
 
 // Production Static Serving
