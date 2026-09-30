@@ -27,17 +27,24 @@ const text: Record<Phase, string> = {
     escaped: 'it got away...',
 };
 
-// first round beat pattern
 const BPM = 90;
 const BEAT = 60 / BPM; // bps
-const TUGS = [0, 1];
-const PULLS = [2, 3];
 const WINDOW = 0.12 / BEAT;
 const ROUNDS = 3; // round to win
 const ROUND = 8; // 8 beat each round
 const HOLD = 4; // hold round
 
-type Round = { start: number; kind: 'tap' | 'hold' };
+
+const PATTERNS = [
+    [0, 1],
+    [0, 0.5, 1],
+    [0, 1.5],
+    [0.5, 1, 1.5],
+    [0.5, 1.5],
+];
+const pullsFor = (tugs: number[]) => tugs.map((t) => t + 2);
+
+type Round = { start: number; kind: 'tap' | 'hold'; tugs: number[] };
 
 // add in audio latency
 function outputDelay() {
@@ -64,11 +71,13 @@ function inRound(round: Round | null) {
     return round ? currentBeat() - round.start : -1;
 }
 
-// 1 on a tug beat, decaying before the next beat
+// 1 on a tug, decaying until the next one
 function tugAmount(round: Round | null) {
     const local = inRound(round);
-    if (round?.kind !== 'tap' || local < 0 || !TUGS.includes(Math.floor(local))) return 0;
-    return Math.exp(-(local % 1) * 5);
+    if (round?.kind !== 'tap' || local < 0) return 0;
+    const last = round.tugs.filter((t) => t <= local).pop();
+    if (last === undefined || local - last >= 1) return 0;
+    return Math.exp(-(local - last) * 5);
 }
 
 // 1 while the fish is holding the line in the hold round
@@ -195,47 +204,25 @@ function CameraRig({ round, holding, press }: { round: Round | null; holding: bo
     return null;
 }
 
-// hold round: one dot slides across the four beats instead of the dots pulsing,
-function HoldSlider({ round, mine, holding }: { round: Round; mine: boolean; holding: boolean }) {
-    const dot = useRef<HTMLDivElement>(null);
+// beat strip that pulse with the tick
 
-    // slide every frame without re-rendering the strip
-    useEffect(() => {
-        let frame = 0;
-        const loop = () => {
-            const local = currentBeat() - round.start;
-            const progress = Math.min(Math.max((mine ? local - HOLD : local) / HOLD, 0), 1);
-            const track = dot.current?.parentElement;
-            if (dot.current && track) {
-                const span = track.clientWidth - dot.current.clientWidth;
-                dot.current.style.transform = `translateX(${progress * span}px)`;
-            }
-            frame = requestAnimationFrame(loop);
-        };
-        loop();
-        return () => cancelAnimationFrame(frame);
-    }, [round, mine]);
-
-    return (
-        <div
-            ref={dot}
-            className={[
-                'absolute left-0 top-0 w-9 h-9 rounded-full',
-                mine ? (holding ? 'bg-emerald-400' : 'border-2 border-white') : 'bg-orange-300',
-            ].join(' ')}
-        />
-    );
-}
+const SLOTS = [0, 1, 2, 3, 4, 5, 6, 7];
+const SMALL = 0.7;
+const NOW = 0.9;
+const BIG = 1.2;
+const GAP = 0.2;
+const RING = 'border-[0.08em] border-white';
+const SLOT = Math.max(SMALL, NOW, BIG);
 
 // beat strip that pulse with the tick
 function BeatStrip({ phase, round, hits, holding }: { phase: Phase; round: Round | null; hits: number[]; holding: boolean }) {
     const [beat, setBeat] = useState(-1);
 
-    // re-render only when the beat changes
+    // re-render only when the half-beat changes
     useEffect(() => {
         let frame = 0;
         const loop = () => {
-            setBeat(Math.floor(currentBeat()));
+            setBeat(Math.floor(currentBeat() * 2) / 2);
             frame = requestAnimationFrame(loop);
         };
         loop();
@@ -246,41 +233,43 @@ function BeatStrip({ phase, round, hits, holding }: { phase: Phase; round: Round
 
     const local = round && phase === 'bite' ? beat - round.start : -1;
     const inPlay = round !== null && local >= 0 && local < ROUND;
+    const isCall = inPlay && round.kind === 'tap' && local < 4; // fish's pattern + your copy
     const isHold = inPlay && round.kind === 'hold';
-    // the hold round has the sliding dot instead, so nothing pulses there
-    const active = isHold ? -1 : inPlay ? local % 4 : beat % 4;
-    const firstHalf = local < 4;
+    const now = (beat % 4) * 2; // current slot (rounds always start on a bar line)
+
+    // [size, look] for each slot
+    const dot = (i: number): [number, string] => {
+        const pos = i / 2;
+        const passed = i <= now;
+
+        if (isCall && round.tugs.includes(pos)) return [passed ? BIG : SMALL, 'bg-orange-300'];
+        if (isCall && pullsFor(round.tugs).includes(pos)) {
+            if (hits.includes(round.start + pos)) return [BIG, 'bg-emerald-400']; // has hit
+            return [i === now ? NOW : SMALL, RING]; // should hit
+        }
+        if (isHold && local < HOLD) return passed ? [BIG, 'bg-orange-300'] : [SMALL, 'bg-white/40']; // fish holding
+        if (isHold) return holding && passed ? [BIG, 'bg-emerald-400'] : [SMALL, RING]; // your hold
+        return i === now ? [NOW, 'bg-white'] : [SMALL, 'bg-white/40']; // plain grid
+    };
 
     // rhythm dots
     return (
-        <div className="absolute bottom-4 inset-x-0 flex justify-center pointer-events-none">
-            <div className="relative flex gap-4">
-                {[0, 1, 2, 3].map((i) => {
-                    let style: string;
-                    if (isHold) {
-                        // just a track for the sliding dot to run along
-                        style = 'bg-white/25';
-                    } else if (inPlay && round.kind === 'tap' && firstHalf) {
-                        // fish tugs, then your pulls
-                        if (TUGS.includes(i)) style = 'bg-orange-300';
-                        else style = `border-2 border-white ${hits.includes(round.start + i) ? 'bg-emerald-400' : ''}`;
-                    } else {
-                        // waiting or resting: plain pulse
-                        style = i === active ? 'bg-white/70' : 'bg-white/25';
-                    }
-                    return (
+        <div
+            className="absolute bottom-[0.8em] inset-x-0 flex justify-center text-[length:2cqw] pointer-events-none"
+            style={{ gap: `${GAP}em` }}
+        >
+            {SLOTS.map((i) => {
+                const [size, look] = dot(i);
+                return (
+                    <div key={i} className="flex items-center justify-center" style={{ width: `${SLOT}em`, height: `${SLOT}em` }}>
+                        {/* shrink-0: don't let flexbox squish the dot's width to fit the slot */}
                         <div
-                            key={i}
-                            className={[
-                                'w-9 h-9 rounded-full transition-transform duration-100',
-                                i === active ? 'scale-120' : 'scale-100',
-                                style,
-                            ].join(' ')}
+                            className={`shrink-0 rounded-full transition-all duration-100 ${look}`}
+                            style={{ width: `${size}em`, height: `${size}em` }}
                         />
-                    );
-                })}
-                {isHold && <HoldSlider round={round} mine={!firstHalf} holding={holding} />}
-            </div>
+                    </div>
+                );
+            })}
         </div>
     );
 }
@@ -328,6 +317,7 @@ export default function Fishing() {
     const [hits, setHits] = useState<number[]>([]);
     const resolved = useRef(false); // this round is already won/lost
     const reeled = useRef(0); // tap rounds won so far
+    const pattern = useRef(PATTERNS[0]); // rhythmpat
     const [reeledView, setReeledView] = useState(0);
     const holding = useRef(false);
     const [isHolding, setIsHolding] = useState(false);
@@ -376,7 +366,8 @@ export default function Fishing() {
     // rounds: tap rounds until you've won ROUNDS of them, then the hold round
     const startRound = (start: number) => {
         const kind = reeled.current >= ROUNDS ? 'hold' : 'tap';
-        round.current = { start, kind };
+        const tugs = pattern.current;
+        round.current = { start, kind, tugs };
         setRoundView(round.current);
         resolved.current = false;
         setHits([]);
@@ -385,9 +376,10 @@ export default function Fishing() {
         const live = () => round.current?.start === start && !resolved.current;
 
         if (kind === 'tap') {
-            setTargets(PULLS.map((p) => start + p));
-            TUGS.forEach((t) => at(start + t, (time) => playThud(time)));
-            onBeat(start + PULLS[PULLS.length - 1] + WINDOW, () => live() && resolve(false));
+            const pulls = pullsFor(tugs);
+            setTargets(pulls.map((p) => start + p));
+            tugs.forEach((t) => at(start + t, (time) => playThud(time)));
+            onBeat(start + Math.max(...pulls) + WINDOW, () => live() && resolve(false));
         } else {
             // final round holding
             setTargets([start + HOLD]);
@@ -449,6 +441,7 @@ export default function Fishing() {
         // cast: wait 1-2 bars, then the bite starts on a downbeat
         const bite = 4 * (1 + Math.floor(Math.random() * 2));
         reeled.current = 0;
+        pattern.current = PATTERNS[Math.floor(Math.random() * PATTERNS.length)];
         setReeledView(0);
         setFeedback('');
         setPhase('waiting');
