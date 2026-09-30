@@ -31,7 +31,7 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Store the DB inside /rcfishing_data when deployed in Docker, or local root in dev
+// Store the DB inside /volume_rcfishing when deployed in Docker, or local root in dev
 const dbPath = process.env.VOLUME_DIR 
   ? path.join(process.env.VOLUME_DIR, 'rcfishing.db')
   : path.resolve(process.cwd(), 'rcfishing.db');
@@ -46,7 +46,6 @@ if (!fs.existsSync(dbDir)) {
 const db = new Database(dbPath);
 
 // Create the table. We use user_id as the Primary Key so each user has one drawing.
-// comment to trigger deploy to test volumes on Disco, old db/table should exist after deploy
 db.exec(`
   CREATE TABLE IF NOT EXISTS recurser_drawings (
     user_id TEXT PRIMARY KEY,
